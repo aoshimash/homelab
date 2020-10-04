@@ -1,0 +1,51 @@
+---
+- name: setup master node
+  hosts: all
+  tasks:
+  - name: check ca.crt existence
+    stat:
+      path: /etc/kubernetes/pki/ca.crt
+    register: _ca_crt_stat
+
+  - name: generate a bootstrap token
+    command: "kubeadm token generate"
+    register: _bootstrap_token
+    when: not (_ca_crt_stat.stat.exists | bool)
+
+  - name: initialize master node
+    become: true
+    command: "kubeadm init --token {{ _bootstrap_token.stdout }} --kubernetes-version=v1.18.2 --pod-network-cidr=10.244.0.0/16"
+    register: _kubeadm_init
+    when: not (_ca_crt_stat.stat.exists | bool)
+
+  - name: get ca.crt hash
+    become: true
+    shell: "openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'"
+    register: _ca_cert_hash
+    changed_when: false
+
+  - name: get bootstrap token
+    become: true
+    command: "kubeadm token list -o json"
+    changed_when: false
+    register: _token_list
+
+  - name: create .kube direcotry
+    file:
+      path: "{{ ansible_env.HOME }}/.kube"
+      state: directory
+
+  - name: copy .kube/config
+    become: true
+    copy:
+      src: "/etc/kubernetes/admin.conf"
+      remote_src: yes
+      dest: "{{ ansible_env.HOME }}/.kube/config"
+      owner: "{{ ansible_env.USER }}"
+      group: "{{ ansible_env.USER }}"
+
+  - name: display the result
+    debug:
+      msg:
+      - "token: {{ _token_list.stdout | from_json | json_query('token') }}"
+      - "ca_cert_hash: {{ _ca_cert_hash.stdout }}"

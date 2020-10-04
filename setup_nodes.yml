@@ -1,0 +1,79 @@
+- name: initialize nodes
+  hosts: all
+  become: yes
+  tasks:
+  - name: install docker
+    apt:
+      name: docker.io
+
+  - name: create /etc/docker/daemon.json
+    copy:
+      src: ./files/daemon.json
+      dest: /etc/docker/daemon.json
+    notify: reboot
+
+  - name: create /boot/firmware/cmdline.txt
+    copy:
+      src: ./files/cmdline.txt
+      dest: /boot/firmware/cmdline.txt
+    notify: reboot
+
+  - name: enable docker.service
+    service:
+      name: docker
+      enabled: yes
+    notify: reboot
+
+  - name: set net.bridge.bridge-nf-call-ip6tables to 1 in /etc/sysctl.d/k8s.conf
+    sysctl:
+      name: net.bridge.bridge-nf-call-ip6tables
+      value: "1"
+      sysctl_set: yes
+      sysctl_file: /etc/sysctl.d/k8s.conf
+      reload: yes
+
+  - name: set net.bridge.bridge-nf-call-iptables to 1 in /etc/sysctl.d/k8s.conf
+    sysctl:
+      name: net.bridge.bridge-nf-call-iptables
+      value: "1"
+      sysctl_set: yes
+      sysctl_file: /etc/sysctl.d/k8s.conf
+      reload: yes
+
+  - name: add an kubernetes apt key
+    apt_key:
+      url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+      state: present
+
+  - name: add kubernetes repository into sources list
+    apt_repository:
+      repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+      state: present
+      filename: kubernetes.list
+
+  - name: install kubernetes packages
+    apt:
+      name:
+      - kubelet=1.18.2-00
+      - kubeadm=1.18.2-00
+      - kubectl=1.18.2-00
+      update_cache: yes
+
+  - name: set on hold kubelet
+    command: apt-mark hold kubelet
+    register: _reg
+    changed_when: _reg.stdout != "kubelet was already set on hold."
+
+  - name: set on hold kubeadm
+    command: apt-mark hold kubeadm
+    register: _reg
+    changed_when: _reg.stdout != "kubeadm was already set on hold."
+
+  - name: set on hold kubectl
+    command: apt-mark hold kubectl
+    register: _reg
+    changed_when: _reg.stdout != "kubectl was already set on hold."
+
+  handler:
+  - name: reboot
+    reboot:

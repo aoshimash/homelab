@@ -1,0 +1,12 @@
+- name: setup worker nodes
+  hosts: all
+  become: yes
+  tasks:
+  - name: check existence of kubelet.conf
+    stat:
+      path: /etc/kubernetes/kubelet.conf
+    register: _kubelet_conf_stat
+
+  - name: join this machine to k8s cluster
+    command: "kubeadm join {{ master_node_host }} --token {{ token }} --discovery-token-ca-cert-hash sha256:{{ ca_cert_hash }}"
+    when: not (_kubelet_conf_stat.stat.exists | bool)

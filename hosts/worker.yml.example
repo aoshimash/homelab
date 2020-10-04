@@ -1,0 +1,15 @@
+all:
+  vars:
+    master_node_host: "192.168.0.10:6443"
+    token: "wjbuzc.0dx9khka21k0ay1b"
+    ca_cert_hash: "63c4e6a01f6f3ef2dff873cdf926a6b08cb55460d72c4cef9a5d9171801dec69"
+  hosts:
+    worker-1:
+      ansible_host: 192.168.0.11
+      ansible_user: ubuntu
+      ansible_password: passw0rd
+    worker-2:
+      ansible_host: 192.168.0.12
+      ansible_user: ubuntu
+      ansible_password: passw0rd
+
